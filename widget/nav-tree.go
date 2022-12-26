@@ -8,8 +8,10 @@ import (
 	"request/storage/sqlite3"
 )
 
+var repo *sqlite3.NodeRepo
+
 func NavTree() fyne.CanvasObject {
-	repo := sqlite3.NewRepo()
+	repo = sqlite3.NewRepo()
 	tree := &widget.Tree{
 		Root: "",
 	}
