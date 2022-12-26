@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	myApp := app.New()
+	myApp := app.NewWithID("com.github.imythu.request")
 	myApp.Settings().SetTheme(&resource.MonoFontTheme{})
 	myWindow := myApp.NewWindow("Border Layout")
 	//bgImg := &canvas.Image{
@@ -21,7 +21,8 @@ func main() {
 	//content := container.NewMax(bgImg)
 	//content.Add(widget.Tree())
 
-	content := container.NewMax(widget.Tree())
+	content := container.NewMax(container.NewBorder(nil, nil, nil, nil, widget.NavTree(),
+		widget.RequestView(nil)))
 	mainContainer := container.New(layout.NewBorderLayout(nil, nil, nil, nil), content)
 	myWindow.SetContent(mainContainer)
 	myWindow.Resize(fyne.NewSize(2560/2, 1440/2))

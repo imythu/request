@@ -1,58 +1,90 @@
 package widget
 
 import (
-	"fmt"
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"request/http"
-	"request/http/body"
-	"request/http/method"
 	"request/storage/sqlite3"
 )
 
-var data = map[string]interface{}{
-	"new-cc": &map[string]interface{}{
-		"添加自定义节点": &http.Request{
-			Method: method.POST,
-			Url:    "http://127.0.0.1:17785/command",
-			Params: map[string]string{
-				"SoundType": "111",
-			},
-			Headers: nil,
-			Body:    &body.NoneBody{},
-		},
-	},
-}
+const uidKey = "uid"
 
-func Tree() *widget.Tree {
+func NavTree() fyne.CanvasObject {
 	repo := sqlite3.NewRepo()
 	tree := &widget.Tree{
-		ChildUIDs: func(uid string) []string {
-			nodes := repo.QueryChildNodes(uid)
-			var nodeIdList []string
-			for _, node := range nodes {
-				nodeIdList = append(nodeIdList, node.ID)
-			}
-			return nodeIdList
-		},
-		IsBranch: func(uid string) bool {
-			return repo.HasChild(uid)
-		},
-		CreateNode: func(branch bool) fyne.CanvasObject {
-			return widget.NewLabel("Collection Widgets")
-		},
-		UpdateNode: func(uid string, branch bool, obj fyne.CanvasObject) {
-			t := repo.QueryNode(uid)
-			obj.(*widget.Label).SetText(t.Name)
-			if repo.HasChild(uid) {
-				obj.(*widget.Label).TextStyle = fyne.TextStyle{Bold: true}
-			}
-		},
-		OnSelected: func(uid string) {
-			node := repo.QueryNode(uid)
-			fmt.Printf("%v", node)
-		},
+		Root: "",
 	}
-	tree.Resize(fyne.NewSize(300, 100))
+	tree.IsBranch = func(uid string) bool {
+		return repo.HasChild(uid)
+	}
+	tree.ChildUIDs = func(uid string) []string {
+		nodes := repo.QueryChildNodes(uid)
+		var nodeIdList []string
+		for _, node := range nodes {
+			nodeIdList = append(nodeIdList, node.ID)
+		}
+		return nodeIdList
+	}
+	tree.CreateNode = func(branch bool) fyne.CanvasObject {
+		var icon fyne.CanvasObject
+		if branch {
+			icon = widget.NewIcon(nil)
+		} else {
+			icon = widget.NewFileIcon(nil)
+		}
+		label := widget.NewLabel("Loading")
+
+		border := container.NewBorder(nil, nil, icon, nil, label)
+		return border
+	}
+	tree.UpdateNode = func(uid string, branch bool, obj fyne.CanvasObject) {
+		node := repo.QueryNode(uid)
+		wrapper := obj.(*doubleTappableWidget)
+		container := wrapper.Container
+		label := container.Objects[0].(*widget.Label)
+		label.SetText(node.Name)
+		wrapper.data[uidKey] = uid
+		if branch {
+			label.TextStyle = fyne.TextStyle{Bold: true}
+		}
+		if branch {
+			var r fyne.Resource
+			if tree.IsBranchOpen(uid) {
+				// Set open folder icon
+				r = theme.FolderOpenIcon()
+			} else {
+				// Set folder icon
+				r = theme.FolderIcon()
+			}
+			container.Objects[1].(*widget.Icon).SetResource(r)
+		}
+	}
+
 	return tree
+}
+
+func (d *doubleTappableWidget) DoubleTapped(event *fyne.PointEvent) {
+	d.doubleTapped(event)
+}
+
+type doubleTappableWidget struct {
+	widget.BaseWidget
+	data         map[string]string
+	doubleTapped func(*fyne.PointEvent)
+}
+
+func (d *doubleTappableWidget) CreateRenderer() fyne.WidgetRenderer {
+	d.BaseWidget.ExtendBaseWidget(d)
+	return d.BaseWidget
+}
+
+type doubleTappableIcon struct {
+	doubleTappableWidget
+}
+
+func newDoubleTappableIcon() *widget.Icon {
+	icon := &doubleTappableIcon{}
+	icon.ExtendBaseWidget(icon)
+	return icon
 }
