@@ -8,8 +8,6 @@ import (
 	"request/storage/sqlite3"
 )
 
-const uidKey = "uid"
-
 func NavTree() fyne.CanvasObject {
 	repo := sqlite3.NewRepo()
 	tree := &widget.Tree{
@@ -27,27 +25,35 @@ func NavTree() fyne.CanvasObject {
 		return nodeIdList
 	}
 	tree.CreateNode = func(branch bool) fyne.CanvasObject {
-		var icon fyne.CanvasObject
-		if branch {
-			icon = widget.NewIcon(nil)
-		} else {
-			icon = widget.NewFileIcon(nil)
+		icon := NewTappableIcon()
+		label := newTreeLabel("Loading")
+		f := func(event *fyne.PointEvent) {
+			if branch {
+				uid := icon.Uid
+				if tree.IsBranchOpen(uid) {
+					tree.CloseBranch(uid)
+				} else {
+					tree.OpenBranch(uid)
+				}
+			}
 		}
-		label := widget.NewLabel("Loading")
+
+		icon.OnDoubleClick = f
+		label.OnDoubleClick = f
 
 		border := container.NewBorder(nil, nil, icon, nil, label)
 		return border
 	}
 	tree.UpdateNode = func(uid string, branch bool, obj fyne.CanvasObject) {
 		node := repo.QueryNode(uid)
-		wrapper := obj.(*doubleTappableWidget)
-		container := wrapper.Container
-		label := container.Objects[0].(*widget.Label)
+		c := obj.(*fyne.Container)
+		label := c.Objects[0].(*TreeLabel)
 		label.SetText(node.Name)
-		wrapper.data[uidKey] = uid
+		label.Uid = uid
 		if branch {
 			label.TextStyle = fyne.TextStyle{Bold: true}
 		}
+		icon := c.Objects[1].(*TreeIcon)
 		if branch {
 			var r fyne.Resource
 			if tree.IsBranchOpen(uid) {
@@ -57,34 +63,12 @@ func NavTree() fyne.CanvasObject {
 				// Set folder icon
 				r = theme.FolderIcon()
 			}
-			container.Objects[1].(*widget.Icon).SetResource(r)
+			icon.SetResource(r)
+			icon.Uid = uid
+		} else {
+			icon.SetResource(theme.FileIcon())
 		}
 	}
 
 	return tree
-}
-
-func (d *doubleTappableWidget) DoubleTapped(event *fyne.PointEvent) {
-	d.doubleTapped(event)
-}
-
-type doubleTappableWidget struct {
-	widget.BaseWidget
-	data         map[string]string
-	doubleTapped func(*fyne.PointEvent)
-}
-
-func (d *doubleTappableWidget) CreateRenderer() fyne.WidgetRenderer {
-	d.BaseWidget.ExtendBaseWidget(d)
-	return d.BaseWidget
-}
-
-type doubleTappableIcon struct {
-	doubleTappableWidget
-}
-
-func newDoubleTappableIcon() *widget.Icon {
-	icon := &doubleTappableIcon{}
-	icon.ExtendBaseWidget(icon)
-	return icon
 }
